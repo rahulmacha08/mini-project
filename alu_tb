@@ -1,0 +1,101 @@
+`timescale 1ns / 1ps
+module alu_tb;
+
+    // -- Testbench signals --
+    // These signals will drive the inputs of the DUT (Design Under Test)
+    logic [7:0] A;
+    logic [7:0] B;
+    logic [2:0] Opcode;
+
+    // These signals will capture the outputs from the DUT
+    logic [7:0] Result;
+    logic       Zero;
+    logic       CarryOut;
+    logic       Overflow;
+
+    // -- Instantiate the Design Under Test (DUT) --
+    // Connects the testbench signals to the ALU's ports by name.
+    alu_8bit dut (
+        .A(A),
+        .B(B),
+        .Opcode(Opcode),
+        .Result(Result),
+        .Zero(Zero),
+        .CarryOut(CarryOut),
+        .Overflow(Overflow)
+    );
+
+    // Use local parameters for readable opcode definitions, matching the DUT
+    localparam ADD = 3'b000;
+    localparam SUB = 3'b001;
+    localparam AND = 3'b010;
+    localparam OR  = 3'b011;
+    localparam XOR = 3'b100;
+    localparam NOT = 3'b101;
+    localparam SLL = 3'b110;
+    localparam SRL = 3'b111;
+
+    // -- Test Sequence --
+    // The 'initial' block runs once at the beginning of the simulation.
+    initial begin
+        // The $monitor task prints the values of the signals whenever any of them change.
+        // This provides a running log of the testbench activity.
+        $monitor("Time=%0t | Op=%b A=0x%h B=0x%h -> Result=0x%h | Flags: Z=%b C=%b V=%b",
+                 $time, Opcode, A, B, Result, Zero, CarryOut, Overflow);
+
+        // -- Test cases begin here --
+        // Start with a small delay to allow signals to settle.
+        #10;
+
+        // === Test ADD operation ===
+        $display("\n--- Testing ADD ---");
+        A = 8'd50;  B = 8'd25;  Opcode = ADD; #10; // 50 + 25 = 75. No flags.
+        A = 8'hF0;  B = 8'h1A;  Opcode = ADD; #10; // 240 + 26 = 266. Results in 10, CarryOut=1.
+        A = 8'd100; B = 8'd100; Opcode = ADD; #10; // Signed overflow: 100+100=200, which is -56 in 8-bit signed. Overflow=1.
+
+        // === Test SUB operation ===
+        $display("\n--- Testing SUB ---");
+        A = 8'd50;  B = 8'd25;  Opcode = SUB; #10; // 50 - 25 = 25. No flags.
+        A = 8'd25;  B = 8'd50;  Opcode = SUB; #10; // 25 - 50 = -25 (or 231 unsigned). CarryOut=1 (borrow).
+        A = 8'd50;  B = 8'd50;  Opcode = SUB; #10; // 50 - 50 = 0. Zero=1.
+        A = 8'sd100 ; B = 8'sd50 ; Opcode = SUB ; #10; // -100 - 50 = -150. Signed overflow. Overflow=1.
+        
+        // ===Test Logical AND ===
+        $display("\n--- Testing AND ---");
+        A = 8'b11001100; B = 8'b10101010; Opcode = AND; #10; // Result: 10001000
+        
+        // === Test Logical OR ===
+        $display("\n--- Testing OR ---");
+        A = 8'b11001100; B = 8'b10101010; Opcode = OR;  #10; // Result: 11101110
+        
+        // === Test Logical XOR ===
+        $display("\n--- Testing XOR ---");
+        A = 8'b11001100; B = 8'b10101010; Opcode = XOR; #10; // Result: 01100110
+        
+        // === Test Logical NOT ===
+        $display("\n--- Testing NOT ---");
+        A = 8'b11001100; B = 8'hFF; Opcode = NOT; #10; // B is ignored. Result: 00110011
+        
+        // === Test Shift Left Logical (SLL) ===
+        $display("\n--- Testing SLL ---");
+        A = 8'b01010101; B = 8'h00; Opcode = SLL; #10; // Result: 10101010. CarryOut=0.
+        A = 8'b10101010; B = 8'h00; Opcode = SLL; #10; // Result: 01010100. CarryOut=1.
+        
+        // === Test Shift Right Logical (SRL) ===
+        $display("\n--- Testing SRL ---");
+        A = 8'b10101010; B = 8'h00; Opcode = SRL; #10; // Result: 01010101. CarryOut=0.
+        A = 8'b01010101; B = 8'h00; Opcode = SRL; #10; // Result: 00101010. CarryOut=1.
+        
+        // End the simulation after a final delay
+        #20;
+        $display("\n--- Testbench Finished ---");
+        $finish;
+   
+    end
+     initial begin 
+        $dumpfile("alu_8bit.vcd");
+        $dumpvars(0,alu_tb);
+        
+      end 
+
+endmodule
